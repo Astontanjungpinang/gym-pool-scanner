@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accounting & Admin — Gym & Pool Hotel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+  <!-- Navbar -->
+  <nav class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center shadow">
+    <div>
+      <h1 class="text-lg font-bold text-amber-400">ACCOUNTING & MEMBERSHIP CONTROL</h1>
+      <p class="text-xs text-slate-400">Manajemen Kartu Fisik, Generator Stiker QR & Log Kehadiran</p>
+    </div>
+    <a href="index.html" target="_blank" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-600 px-3 py-2 rounded-lg">
+      Buka Halaman Scanner ↗
+    </a>
+  </nav>
+
+  <main class="max-w-6xl mx-auto p-6 space-y-8">
+
+    <!-- Bagian 1: Form Tambah Member & Generate Stiker QR -->
+    <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+      <h2 class="text-base font-bold text-slate-800 mb-4 border-b pb-2">1. Registrasi Kartu Fisik & Buat Stiker QR</h2>
+      <form onsubmit="addMember(event)" class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">No. ID Kartu Fisik</label>
+          <input type="text" id="id_kartu" placeholder="Contoh: HTL-005" required class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Member</label>
+          <input type="text" id="nama" placeholder="Nama Lengkap" required class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Paket Membership</label>
+          <select id="paket" class="w-full border rounded-lg px-3 py-2 text-sm bg-white">
+            <option value="Monthly Gym & Pool">Monthly Gym & Pool</option>
+            <option value="Quarterly (3 Bulan)">Quarterly (3 Bulan)</option>
+            <option value="Annual VIP">Annual VIP</option>
+            <option value="Corporate">Corporate</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Berlaku Sampai (Expired)</label>
+          <input type="date" id="expired_date" required class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+        <button type="submit" id="btn-save" class="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold py-2 px-4 rounded-lg text-sm transition">
+          + Simpan & Buat QR
+        </button>
+      </form>
+    </section>
+
+    <!-- Bagian 2: Daftar Member & Download Stiker QR -->
+    <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+      <div class="flex justify-between items-center mb-4 border-b pb-2">
+        <h2 class="text-base font-bold text-slate-800">2. Daftar Member & Stiker QR Siap Cetak</h2>
+        <button onclick="loadData()" class="text-xs bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg font-medium">↻ Refresh Data</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
+            <tr>
+              <th class="p-3">ID Kartu</th>
+              <th class="p-3">Nama Member</th>
+              <th class="p-3">Paket</th>
+              <th class="p-3">Masa Berlaku</th>
+              <th class="p-3">Status</th>
+              <th class="p-3 text-center">Stiker QR</th>
+            </tr>
+          </thead>
+          <tbody id="table-members" class="divide-y divide-slate-100">
+            <tr><td colspan="6" class="p-4 text-center text-slate-400">Memuat data dari Google Sheets...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Bagian 3: Audit Log Kehadiran & Penolakan untuk Accounting -->
+    <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+      <div class="flex justify-between items-center mb-4 border-b pb-2">
+        <h2 class="text-base font-bold text-slate-800">3. Log Kehadiran & Penolakan Terbaru (Audit Accounting)</h2>
+        <button onclick="exportCSV()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium">
+          ⬇ Unduh Laporan CSV
+        </button>
+      </div>
+      <div class="overflow-x-auto max-h-80">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-100 text-slate-600 text-xs uppercase sticky top-0">
+            <tr>
+              <th class="p-3">Waktu Scan</th>
+              <th class="p-3">ID Kartu</th>
+              <th class="p-3">Nama</th>
+              <th class="p-3">Status</th>
+              <th class="p-3">Keterangan</th>
+            </tr>
+          </thead>
+          <tbody id="table-logs" class="divide-y divide-slate-100">
+            <tr><td colspan="5" class="p-4 text-center text-slate-400">Memuat riwayat scan...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Container Tersembunyi untuk Generate Gambar QR -->
+  <div id="hidden-qr" class="hidden"></div>
+
+  <script>
+    // GANTI DENGAN URL WEB APP APPS SCRIPT YANG SAMA DENGAN INDEX.HTML
+    const API_URL = "TEMPEL_URL_WEB_APP_APPS_SCRIPT_ANDA_DI_SINI";
+    let cachedLogs = [];
+
+    window.onload = loadData;
+
+    async function loadData() {
+      // Ambil Data Member
+      const resM = await fetch(`${API_URL}?action=getMembers`);
+      const jsonM = await resM.json();
+      renderMembers(jsonM.data || []);
+
+      // Ambil Data Log
+      const resL = await fetch(`${API_URL}?action=getLogs`);
+      const jsonL = await resL.json();
+      cachedLogs = jsonL.data || [];
+      renderLogs(cachedLogs);
+    }
+
+    function renderMembers(members) {
+      const tbody = document.getElementById('table-members');
+      const today = new Date().toISOString().split('T')[0];
+
+      if (!members.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Belum ada data member.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = members.map(m => {
+        const isValid = m.expired_date >= today;
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="p-3 font-mono font-bold">${m.id_kartu}</td>
+            <td class="p-3 font-medium">${m.nama}</td>
+            <td class="p-3 text-slate-600">${m.paket}</td>
+            <td class="p-3 font-mono">${m.expired_date}</td>
+            <td class="p-3">
+              <span class="px-2 py-1 text-xs font-bold rounded-full ${isValid ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+                ${isValid ? 'AKTIF' : 'EXPIRED'}
+              </span>
+            </td>
+            <td class="p-3 text-center">
+              <button onclick="downloadQR('${m.id_kartu}', '${m.qr_token}')" class="text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded">
+                Unduh Stiker PNG
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderLogs(logs) {
+      const tbody = document.getElementById('table-logs');
+      if (!logs.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Belum ada aktivitas scan.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = logs.map(l => `
+        <tr class="hover:bg-slate-50">
+          <td class="p-3 font-mono text-xs">${l.waktu}</td>
+          <td class="p-3 font-mono font-semibold">${l.id_kartu}</td>
+          <td class="p-3">${l.nama}</td>
+          <td class="p-3">
+            <span class="px-2 py-0.5 text-xs font-bold rounded ${l.status === 'VALID' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+              ${l.status}
+            </span>
+          </td>
+          <td class="p-3 text-slate-600 text-xs">${l.keterangan}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Simpan Member Baru ke Google Sheets dengan Token Acak
+    async function addMember(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-save');
+      btn.innerText = "Menyimpan...";
+      btn.disabled = true;
+
+      const idKartu = document.getElementById('id_kartu').value.trim();
+      const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+      const qrToken = `${idKartu}-${randomSuffix}`; // Token terenkripsi sederhana agar tidak mudah dipalsukan
+
+      const payload = {
+        action: "addMember",
+        id_kartu: idKartu,
+        nama: document.getElementById('nama').value.trim(),
+        paket: document.getElementById('paket').value,
+        expired_date: document.getElementById('expired_date').value,
+        qr_token: qrToken
+      };
+
+      await fetch(API_URL, { method: "POST", body: JSON.stringify(payload) });
+      
+      e.target.reset();
+      btn.innerText = "+ Simpan & Buat QR";
+      btn.disabled = false;
+      loadData();
+      alert(`Member berhasil ditambahkan! Token QR: ${qrToken}`);
+    }
+
+    // Generate & Download Gambar QR Code untuk ditempel di kartu fisik
+    function downloadQR(idKartu, qrToken) {
+      const container = document.getElementById('hidden-qr');
+      container.innerHTML = "";
+      new QRCode(container, { text: qrToken, width: 300, height: 300 });
+
+      setTimeout(() => {
+        const canvas = container.querySelector('canvas');
+        const link = document.createElement('a');
+        link.download = `QR-Stiker-${idKartu}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      }, 200);
+    }
+
+    // Ekspor Log ke CSV untuk Accounting
+    function exportCSV() {
+      let csv = "Waktu,ID Kartu,Nama,Status,Keterangan\n";
+      cachedLogs.forEach(r => {
+        csv += `"${r.waktu}","${r.id_kartu}","${r.nama}","${r.status}","${r.keterangan}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `Laporan-Absensi-Gym-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+    }
+  </script>
+</body>
+</html>

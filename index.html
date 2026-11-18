@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scanner Akses Gym & Pool</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col justify-between">
+
+  <!-- Header Minimalis -->
+  <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex justify-between items-center">
+    <div>
+      <h1 class="text-lg font-bold tracking-wide text-amber-400">GRAND HOTEL — GYM & POOL ACCESS</h1>
+      <p class="text-xs text-slate-400">Gate Check-In Scanner</p>
+    </div>
+    <div id="clock" class="text-sm font-mono bg-slate-900 px-3 py-1.5 rounded border border-slate-700 text-slate-300"></div>
+  </header>
+
+  <!-- Area Utama Scanner -->
+  <main class="max-w-4xl w-full mx-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center my-auto">
+    
+    <!-- Kolom Kiri: Kamera & Input Scanner USB -->
+    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-xl">
+      <div class="flex justify-between items-center mb-3">
+        <span class="text-sm font-semibold text-slate-300">Arahkan QR Kartu Member</span>
+        <button id="btn-cam" onclick="toggleCamera()" class="text-xs bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold px-3 py-1.5 rounded-lg transition">
+          Aktifkan Kamera
+        </button>
+      </div>
+
+      <!-- Layar Kamera -->
+      <div id="reader" class="w-full rounded-xl overflow-hidden bg-slate-950 min-h-[260px] flex items-center justify-center border border-slate-700">
+        <p class="text-xs text-slate-500 px-4 text-center">Klik "Aktifkan Kamera" atau gunakan alat Barcode Scanner USB</p>
+      </div>
+
+      <!-- Input untuk Alat Barcode Scanner USB / Manual -->
+      <form onsubmit="handleManualSubmit(event)" class="mt-4 flex gap-2">
+        <input type="text" id="usb-input" placeholder="Scan USB / Ketik ID atau Token QR..." autofocus
+          class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-400">
+        <button type="submit" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-semibold">Cek</button>
+      </form>
+    </div>
+
+    <!-- Kolom Kanan: Layar Hasil Validasi -->
+    <div id="result-card" class="bg-slate-800 p-8 rounded-2xl border-2 border-slate-700 min-h-[340px] flex flex-col items-center justify-center text-center transition-all duration-300">
+      <div class="w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center mb-4 text-2xl">🪪</div>
+      <h2 class="text-xl font-bold text-slate-300">Menunggu Pemindaian...</h2>
+      <p class="text-sm text-slate-400 mt-2">Tempelkan stiker QR pada kartu member ke kamera atau scanner.</p>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="text-center py-3 text-xs text-slate-500 border-t border-slate-800">
+    Terhubung Real-Time ke Database Accounting Hotel
+  </footer>
+
+  <script>
+    // GANTI DENGAN URL WEB APP APPS SCRIPT ANDA
+    const API_URL = "TEMPEL_URL_WEB_APP_APPS_SCRIPT_ANDA_DI_SINI";
+
+    let html5QrCode = null;
+    let isScanning = false;
+    let isProcessing = false;
+
+    // Jam Real-time
+    setInterval(() => {
+      document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID');
+    }, 1000);
+
+    // Efek Suara Beep (Web Audio API - tanpa file mp3 eksternal)
+    function playSound(isSuccess) {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      if (isSuccess) {
+        osc.frequency.setValueAtTime(880, ctx.currentTime); // Nada tinggi (Ting!)
+        osc.start();
+        osc.stop(ctx.currentTime + 0.18);
+      } else {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, ctx.currentTime); // Nada rendah (Tet-tot!)
+        osc.start();
+        osc.stop(ctx.currentTime + 0.5);
+      }
+    }
+
+    // Aktifkan / Matikan Kamera
+    async function toggleCamera() {
+      const btn = document.getElementById('btn-cam');
+      if (!isScanning) {
+        html5QrCode = new Html5Qrcode("reader");
+        try {
+          await html5QrCode.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 220, height: 220 } },
+            (decodedText) => validateQR(decodedText)
+          );
+          isScanning = true;
+          btn.innerText = "Matikan Kamera";
+          btn.classList.replace("bg-amber-500", "bg-red-500");
+        } catch (err) {
+          alert("Gagal mengakses kamera. Pastikan izin kamera aktif dan menggunakan HTTPS.");
+        }
+      } else {
+        await html5QrCode.stop();
+        isScanning = false;
+        btn.innerText = "Aktifkan Kamera";
+        btn.classList.replace("bg-red-500", "bg-amber-500");
+      }
+    }
+
+    function handleManualSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('usb-input');
+      if (input.value.trim()) {
+        validateQR(input.value.trim());
+        input.value = "";
+      }
+    }
+
+    // Kirim hasil scan ke Google Apps Script
+    async function validateQR(qrToken) {
+      if (isProcessing) return; // Cegah double-scan dalam 3 detik
+      isProcessing = true;
+
+      const card = document.getElementById('result-card');
+      card.className = "bg-slate-800 p-8 rounded-2xl border-2 border-amber-400 min-h-[340px] flex flex-col items-center justify-center text-center";
+      card.innerHTML = `<p class="text-amber-400 font-semibold animate-pulse">Memverifikasi keanggotaan...</p>`;
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: "scan", qr_token: qrToken })
+        });
+        const data = await res.json();
+
+        if (data.valid) {
+          playSound(true);
+          card.className = "bg-emerald-950 p-8 rounded-2xl border-4 border-emerald-500 min-h-[340px] flex flex-col items-center justify-center text-center shadow-2xl";
+          card.innerHTML = `
+            <div class="w-16 h-16 rounded-full bg-emerald-500 text-slate-900 flex items-center justify-center text-3xl font-bold mb-3">✓</div>
+            <span class="px-3 py-1 bg-emerald-500/20 text-emerald-300 text-xs font-bold rounded-full uppercase tracking-wider">AKSES DITERIMA</span>
+            <h2 class="text-2xl font-bold text-white mt-2">${data.member.nama}</h2>
+            <p class="text-sm text-emerald-200 mt-1">ID Kartu: <b>${data.member.id_kartu}</b> • Paket: ${data.member.paket}</p>
+            <p class="text-xs text-emerald-300/80 mt-3">Berlaku s/d: ${data.member.expired_date}</p>
+          `;
+        } else {
+          playSound(false);
+          card.className = "bg-rose-950 p-8 rounded-2xl border-4 border-rose-500 min-h-[340px] flex flex-col items-center justify-center text-center shadow-2xl";
+          card.innerHTML = `
+            <div class="w-16 h-16 rounded-full bg-rose-500 text-white flex items-center justify-center text-3xl font-bold mb-3">✕</div>
+            <span class="px-3 py-1 bg-rose-500/20 text-rose-300 text-xs font-bold rounded-full uppercase tracking-wider">AKSES DITOLAK</span>
+            <h2 class="text-xl font-bold text-white mt-2">${data.reason}</h2>
+            ${data.member ? `<p class="text-sm text-rose-200 mt-1">${data.member.nama} (${data.member.id_kartu})</p>` : ''}
+            <p class="text-xs text-rose-300/80 mt-3">Silakan arahkan tamu ke bagian Resepsionis / Accounting</p>
+          `;
+        }
+      } catch (err) {
+        card.innerHTML = `<p class="text-rose-400">Koneksi ke server terputus. Periksa Wi-Fi.</p>`;
+      }
+
+      // Reset layar setelah 3.5 detik agar siap untuk tamu berikutnya
+      setTimeout(() => {
+        isProcessing = false;
+        card.className = "bg-slate-800 p-8 rounded-2xl border-2 border-slate-700 min-h-[340px] flex flex-col items-center justify-center text-center";
+        card.innerHTML = `
+          <div class="w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center mb-4 text-2xl">🪪</div>
+          <h2 class="text-xl font-bold text-slate-300">Menunggu Pemindaian...</h2>
+          <p class="text-sm text-slate-400 mt-2">Tempelkan stiker QR pada kartu member ke kamera atau scanner.</p>
+        `;
+      }, 3500);
+    }
+  </script>
+</body>
+</html>
