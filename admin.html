@@ -6,18 +6,20 @@
   <title>Accounting & Admin — Gym & Pool Hotel</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Library SheetJS untuk Export ke File Excel Asli (.xlsx) -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   
   <!-- CSS KHUSUS MESIN THERMAL: HANYA MENCETAK GAMBAR QR CODE RESOLUSI TINGGI -->
   <style>
     @media print {
       @page {
-        margin: 0; /* Menghilangkan header/footer bawaan browser */
+        margin: 0;
       }
       body * {
-        visibility: hidden; /* Sembunyikan seluruh halaman dashboard */
+        visibility: hidden;
       }
       #thermal-print-area, #thermal-print-area * {
-        visibility: visible; /* Tampilkan hanya area QR Code */
+        visibility: visible;
       }
       #thermal-print-area {
         position: fixed;
@@ -32,7 +34,6 @@
         width: 32mm !important;
         height: 32mm !important;
         margin: 0 auto;
-        /* Kunci ketajaman garis hitam-putih pada printer thermal */
         image-rendering: -moz-crisp-edges;
         image-rendering: -webkit-crisp-edges;
         image-rendering: pixelated;
@@ -43,7 +44,7 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
 
-  <!-- AREA KHUSUS CETAK THERMAL (Tersembunyi di layar, muncul hanya saat Print) -->
+  <!-- AREA KHUSUS CETAK THERMAL -->
   <div id="thermal-print-area" class="hidden"></div>
 
   <!-- LAYAR KUNCI LOGIN -->
@@ -143,12 +144,37 @@
         </form>
       </section>
 
-      <!-- Bagian 2: Daftar Member & Cetak Ulang Stiker QR -->
+      <!-- Bagian 2: Daftar Member & Cetak Stiker QR (DENGAN FILTER ID & TANGGAL) -->
       <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div class="flex justify-between items-center mb-4 border-b pb-2">
+        <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4 border-b pb-3">
           <h2 class="text-base font-bold text-slate-800">2. Daftar Member & Cetak Stiker QR</h2>
-          <button onclick="loadData()" class="text-xs bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg font-medium">↻ Refresh Data</button>
+          <button onclick="loadData()" class="text-xs bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg font-medium self-start sm:self-auto">↻ Refresh Data</button>
         </div>
+
+        <!-- Baris Filter Pencarian Member -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Cari No. ID / Nama Member</label>
+            <input type="text" id="filter-member-id" oninput="applyMemberFilter()" placeholder="Ketik ID (2026-...) atau Nama..."
+              class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Filter Tanggal (Dari)</label>
+            <input type="date" id="filter-member-start" onchange="applyMemberFilter()"
+              class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Filter Tanggal (Sampai)</label>
+            <input type="date" id="filter-member-end" onchange="applyMemberFilter()"
+              class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-amber-500">
+          </div>
+          <div class="flex items-end">
+            <button onclick="resetMemberFilter()" class="w-full text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-1.5 px-3 rounded-lg transition">
+              Reset Filter
+            </button>
+          </div>
+        </div>
+
         <div class="overflow-x-auto">
           <table class="w-full text-left text-sm">
             <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
@@ -169,15 +195,44 @@
         </div>
       </section>
 
-      <!-- Bagian 3: Audit Log Kehadiran & Penolakan untuk Accounting -->
+      <!-- Bagian 3: Audit Log Kehadiran & Export Excel (.xlsx) -->
       <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div class="flex justify-between items-center mb-4 border-b pb-2">
-          <h2 class="text-base font-bold text-slate-800">3. Log Kehadiran & Penolakan Terbaru (Audit Accounting)</h2>
-          <button onclick="exportCSV()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium">
-            ⬇ Unduh Laporan CSV
+        <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4 border-b pb-3">
+          <div>
+            <h2 class="text-base font-bold text-slate-800">3. Log Kehadiran & Penolakan (Audit Accounting)</h2>
+            <p class="text-xs text-slate-500">Menampilkan <span id="log-count" class="font-bold text-slate-700">0</span> data riwayat pemindaian</p>
+          </div>
+          <button onclick="exportExcel()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-semibold shadow-sm inline-flex items-center gap-1.5 self-start sm:self-auto">
+            <span>📊</span>
+            <span>Unduh Laporan Excel (.xlsx)</span>
           </button>
         </div>
-        <div class="overflow-x-auto max-h-80">
+
+        <!-- Baris Filter Pencarian Log Kehadiran -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Cari No. ID / Nama di Log</label>
+            <input type="text" id="filter-log-id" oninput="applyLogFilter()" placeholder="Ketik ID Kartu atau Nama..."
+              class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Tanggal Scan (Dari)</label>
+            <input type="date" id="filter-log-start" onchange="applyLogFilter()"
+              class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Tanggal Scan (Sampai)</label>
+            <input type="date" id="filter-log-end" onchange="applyLogFilter()"
+              class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-amber-500">
+          </div>
+          <div class="flex items-end">
+            <button onclick="resetLogFilter()" class="w-full text-xs bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-1.5 px-3 rounded-lg transition">
+              Reset Filter
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto max-h-96">
           <table class="w-full text-left text-sm">
             <thead class="bg-slate-100 text-slate-600 text-xs uppercase sticky top-0">
               <tr>
@@ -199,13 +254,15 @@
   </div>
 
   <script>
-    // 1. PASSWORD ADMIN / ACCOUNTING (Silakan ubah sesuai kebutuhan hotel)
+    // 1. PASSWORD ADMIN / ACCOUNTING
     const ADMIN_PASSWORD = "Cameo_2026";
 
     // 2. URL WEB APP APPS SCRIPT ANDA
-    const API_URL = "https://script.google.com/macros/s/AKfycbxnyL9EjWFB6rlW_Hjm1rxSFnN5dD4_EDwm80KytShVHd0fVtxZTjAhoqObNpxKk5Y3hg/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbwPS6KNN1g49FbXqOAymPfUwlnrAQY_8ilVhS-eeCN4qE8pLH8fmS3YwDinHxfhkQJscA/exec";
     
-    let cachedLogs = [];
+    let allMembers = [];
+    let allLogs = [];
+    let filteredLogs = [];
 
     window.onload = () => {
       setDefaultDates();
@@ -261,15 +318,78 @@
       location.reload();
     }
 
+    // Merapikan format tanggal/jam dari Google Sheets agar mudah dibaca & difilter
+    function formatWaktuScan(rawWaktu) {
+      if (!rawWaktu) return { display: "-", dateOnly: "" };
+      const str = String(rawWaktu);
+      if (str.includes("T")) {
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) {
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          const hh = String(d.getHours()).padStart(2, '0');
+          const min = String(d.getMinutes()).padStart(2, '0');
+          const ss = String(d.getSeconds()).padStart(2, '0');
+          return {
+            display: `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`,
+            dateOnly: `${yyyy}-${mm}-${dd}`
+          };
+        }
+      }
+      return {
+        display: str,
+        dateOnly: str.slice(0, 10)
+      };
+    }
+
     async function loadData() {
       const resM = await fetch(`${API_URL}?action=getMembers`);
       const jsonM = await resM.json();
-      renderMembers(jsonM.data || []);
+      allMembers = jsonM.data || [];
+      applyMemberFilter();
 
       const resL = await fetch(`${API_URL}?action=getLogs`);
       const jsonL = await resL.json();
-      cachedLogs = jsonL.data || [];
-      renderLogs(cachedLogs);
+      allLogs = (jsonL.data || []).map(item => {
+        const parsed = formatWaktuScan(item.waktu);
+        return {
+          ...item,
+          waktu_formatted: parsed.display,
+          tanggal_only: parsed.dateOnly
+        };
+      });
+      applyLogFilter();
+    }
+
+    // ==========================================
+    // FILTER DAFTAR MEMBER
+    // ==========================================
+    function applyMemberFilter() {
+      const keyword = document.getElementById("filter-member-id").value.trim().toLowerCase();
+      const startFilter = document.getElementById("filter-member-start").value;
+      const endFilter = document.getElementById("filter-member-end").value;
+
+      const result = allMembers.filter(m => {
+        const matchKeyword = !keyword || 
+          String(m.id_kartu).toLowerCase().includes(keyword) || 
+          String(m.nama).toLowerCase().includes(keyword);
+        
+        const refDate = m.start_date || m.expired_date;
+        const matchStart = !startFilter || (refDate && refDate >= startFilter);
+        const matchEnd = !endFilter || (refDate && refDate <= endFilter);
+
+        return matchKeyword && matchStart && matchEnd;
+      });
+
+      renderMembers(result);
+    }
+
+    function resetMemberFilter() {
+      document.getElementById("filter-member-id").value = "";
+      document.getElementById("filter-member-start").value = "";
+      document.getElementById("filter-member-end").value = "";
+      applyMemberFilter();
     }
 
     function renderMembers(members) {
@@ -277,7 +397,7 @@
       const today = new Date().toISOString().split('T')[0];
 
       if (!members.length) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">Belum ada data member.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">Tidak ada data member yang sesuai filter.</td></tr>`;
         return;
       }
 
@@ -314,16 +434,46 @@
       }).join('');
     }
 
+    // ==========================================
+    // FILTER LOG KEHADIRAN & EXPORT EXCEL (.XLSX)
+    // ==========================================
+    function applyLogFilter() {
+      const keyword = document.getElementById("filter-log-id").value.trim().toLowerCase();
+      const startDate = document.getElementById("filter-log-start").value;
+      const endDate = document.getElementById("filter-log-end").value;
+
+      filteredLogs = allLogs.filter(l => {
+        const matchKeyword = !keyword || 
+          String(l.id_kartu).toLowerCase().includes(keyword) || 
+          String(l.nama).toLowerCase().includes(keyword);
+        
+        const matchStart = !startDate || (l.tanggal_only && l.tanggal_only >= startDate);
+        const matchEnd = !endDate || (l.tanggal_only && l.tanggal_only <= endDate);
+
+        return matchKeyword && matchStart && matchEnd;
+      });
+
+      document.getElementById("log-count").innerText = filteredLogs.length;
+      renderLogs(filteredLogs);
+    }
+
+    function resetLogFilter() {
+      document.getElementById("filter-log-id").value = "";
+      document.getElementById("filter-log-start").value = "";
+      document.getElementById("filter-log-end").value = "";
+      applyLogFilter();
+    }
+
     function renderLogs(logs) {
       const tbody = document.getElementById('table-logs');
       if (!logs.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Belum ada aktivitas scan.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Tidak ada riwayat scan pada filter yang dipilih.</td></tr>`;
         return;
       }
 
       tbody.innerHTML = logs.map(l => `
         <tr class="hover:bg-slate-50">
-          <td class="p-3 font-mono text-xs">${l.waktu}</td>
+          <td class="p-3 font-mono text-xs">${l.waktu_formatted}</td>
           <td class="p-3 font-mono font-semibold">${l.id_kartu}</td>
           <td class="p-3">${l.nama}</td>
           <td class="p-3">
@@ -334,6 +484,49 @@
           <td class="p-3 text-slate-600 text-xs">${l.keterangan}</td>
         </tr>
       `).join('');
+    }
+
+    // EXPORT KE FILE EXCEL ASLI (.XLSX) SESUAI HASIL FILTER
+    function exportExcel() {
+      if (!filteredLogs.length) {
+        alert("Tidak ada data log untuk diunduh.");
+        return;
+      }
+
+      // Susun struktur kolom Excel yang rapi untuk Audit Accounting
+      const dataUntukExcel = filteredLogs.map((row, index) => ({
+        "No": index + 1,
+        "Waktu Scan": row.waktu_formatted,
+        "No. ID Kartu": row.id_kartu,
+        "Nama Member": row.nama,
+        "Status Akses": row.status,
+        "Keterangan / Paket": row.keterangan
+      }));
+
+      // Buat Workbook & Worksheet Excel
+      const worksheet = XLSX.utils.json_to_sheet(dataUntukExcel);
+      
+      // Atur lebar otomatis setiap kolom agar tidak terpotong saat dibuka di Excel
+      worksheet["!cols"] = [
+        { wch: 5 },   // No
+        { wch: 22 },  // Waktu Scan
+        { wch: 18 },  // No. ID Kartu
+        { wch: 25 },  // Nama Member
+        { wch: 14 },  // Status Akses
+        { wch: 35 }   // Keterangan
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Audit Kehadiran Gym");
+
+      // Nama file menyertakan rentang tanggal filter jika diisi
+      const startFilter = document.getElementById("filter-log-start").value;
+      const endFilter = document.getElementById("filter-log-end").value;
+      const periodeLabel = (startFilter || endFilter) 
+        ? `${startFilter || 'awal'}_sd_${endFilter || 'akhir'}` 
+        : new Date().toISOString().slice(0, 10);
+
+      XLSX.writeFile(workbook, `Laporan_Audit_Gym_${periodeLabel}.xlsx`);
     }
 
     // SIMPAN MEMBER & LANGSUNG CETAK KE MESIN THERMAL
@@ -366,12 +559,10 @@
       btn.disabled = false;
       
       loadData();
-      
-      // Langsung memunculkan dialog print thermal (hanya gambar QR Code saja)
       printThermalQR(qrToken);
     }
 
-    // FUNGSI CETAK GAMBAR QR CODE RESOLUSI TINGGI (600x600px) KE PRINTER THERMAL
+    // CETAK GAMBAR QR CODE RESOLUSI TINGGI KE PRINTER THERMAL
     function printThermalQR(qrToken) {
       const printArea = document.getElementById('thermal-print-area');
       printArea.innerHTML = "";
@@ -388,18 +579,6 @@
       setTimeout(() => {
         window.print();
       }, 300);
-    }
-
-    function exportCSV() {
-      let csv = "Waktu,ID Kartu,Nama,Status,Keterangan\n";
-      cachedLogs.forEach(r => {
-        csv += `"${r.waktu}","${r.id_kartu}","${r.nama}","${r.status}","${r.keterangan}"\n`;
-      });
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `Laporan-Absensi-Gym-${new Date().toISOString().slice(0,10)}.csv`;
-      a.click();
     }
   </script>
 </body>
