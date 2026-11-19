@@ -9,42 +9,38 @@
   <!-- Library SheetJS untuk Export ke File Excel Asli (.xlsx) -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   
-  <!-- CSS KHUSUS MESIN THERMAL 58MM: TEPAT 1 HALAMAN, PRESISI TENGAH & BAGIAN ATAS -->
+  <!-- CSS KHUSUS MESIN THERMAL 58MM: PORTRAIT, TEPAT 1 HALAMAN, TENGAH & ATAS -->
   <style>
     @media print {
       @page {
-        size: 58mm 32mm; /* Mengunci ukuran kertas menjadi 1 label pendek (mencegah 3 halaman berulang) */
+        size: 58mm 80mm portrait; /* Tinggi (80mm) lebih besar dari lebar (58mm) + kunci portrait */
         margin: 0mm !important;
       }
       html, body {
-        width: 100% !important;
+        width: 58mm !important;
         height: auto !important;
         margin: 0 !important;
         padding: 0 !important;
         background: #ffffff !important;
         overflow: hidden !important;
       }
-      /* Hilangkan total seluruh halaman dashboard dari layout cetak agar tidak memicu halaman 2 & 3 */
       #login-screen,
       #edit-modal,
       #admin-content {
         display: none !important;
       }
-      /* Tampilkan area cetak thermal dengan lebar 100% mengikuti lebar cetak efektif printer */
       #thermal-print-area {
         display: flex !important;
-        width: 100% !important;
-        justify-content: center !important; /* Presisi tepat di tengah horizontal */
-        align-items: flex-start !important; /* Presisi rapat di bagian atas */
+        width: 58mm !important;
+        justify-content: center !important;
+        align-items: flex-start !important;
         padding-top: 2mm !important;
-        margin: 0 auto !important;
+        margin: 0 !important;
         background: #ffffff !important;
       }
-      /* Sembunyikan elemen canvas duplikat bawaan library qrcode.js */
       #thermal-print-area canvas {
         display: none !important;
       }
-      /* Tampilkan hanya 1 gambar QR Code tunggal */
       #thermal-print-area img {
         display: block !important;
         width: 22mm !important;
