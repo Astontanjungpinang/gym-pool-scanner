@@ -9,7 +9,7 @@
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex flex-col justify-between">
 
-  <!-- Header Minimalis dengan Tombol Akses Admin/Accounting -->
+  <!-- Header Minimalis dengan Indikator Status Scanner Dinamis -->
   <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex justify-between items-center">
     <div>
       <h1 class="text-lg font-bold tracking-wide text-amber-400">Cameo — GYM & POOL ACCESS</h1>
@@ -17,11 +17,12 @@
     </div>
 
     <div class="flex items-center gap-3">
-      <!-- Indikator Status Mesin Scanner -->
-      <div class="hidden md:flex items-center gap-2 text-xs bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-        <span>USB / Wireless Scanner Siap</span>
-      </div>
+      <!-- Indikator Status Mesin Scanner (Default: Merah / Tidak Terhubung sampai terdeteksi) -->
+      <button id="scanner-status-badge" onclick="connectHardwareScanner()" title="Klik untuk menghubungkan / cek perangkat USB Scanner"
+        class="flex items-center gap-2 text-xs bg-rose-500/15 border border-rose-500/40 text-rose-400 px-3 py-1.5 rounded transition cursor-pointer hover:bg-rose-500/25">
+        <span id="scanner-status-dot" class="w-2 h-2 rounded-full bg-rose-500"></span>
+        <span id="scanner-status-text">Scanner Tidak Terhubung</span>
+      </button>
 
       <!-- Jam Real-time -->
       <div id="clock" class="hidden sm:block text-sm font-mono bg-slate-900 px-3 py-1.5 rounded border border-slate-700 text-slate-300"></div>
@@ -78,29 +79,95 @@
 
   <script>
     // GANTI DENGAN URL WEB APP APPS SCRIPT ANDA
-    const API_URL = "https://script.google.com/macros/s/AKfycbyFAmHZvKqI5rQQQQPFde5g6pnkHjaIw-5UYhx6aAxQHreflh7ZX9PWdZ3JkY_4aTmlqw/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbwpMrby2FEp4z5TGqznTIChU8NICCJcxU7Jpv0StZDW08faUmC1QUXMo9QtcyXLIHBdRA/exec";
 
     let html5QrCode = null;
     let isScanning = false;
     let isProcessing = false;
+    let isScannerVerified = false;
 
-    // 1. AUTO-FOCUS & GLOBAL KEYSTROKE LISTENER UNTUK MESIN QR BARCODE FISIK
-    // Menangkap input dari alat barcode scanner meskipun staf tidak sengaja mengklik di luar kotak input
+    // FUNGSI UBAH TAMPILAN STATUS SCANNER (MERAH vs HIJAU)
+    function setScannerStatus(connected, labelText) {
+      const badge = document.getElementById("scanner-status-badge");
+      const dot = document.getElementById("scanner-status-dot");
+      const text = document.getElementById("scanner-status-text");
+
+      isScannerVerified = connected;
+
+      if (connected) {
+        badge.className = "flex items-center gap-2 text-xs bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 px-3 py-1.5 rounded transition cursor-pointer";
+        dot.className = "w-2 h-2 rounded-full bg-emerald-400 animate-ping";
+        text.innerText = labelText || "USB / Wireless Scanner Terhubung";
+      } else {
+        badge.className = "flex items-center gap-2 text-xs bg-rose-500/15 border border-rose-500/40 text-rose-400 px-3 py-1.5 rounded transition cursor-pointer hover:bg-rose-500/25";
+        dot.className = "w-2 h-2 rounded-full bg-rose-500";
+        text.innerText = labelText || "Scanner Tidak Terhubung";
+      }
+    }
+
+    // 1. DETEKSI PERANGKAT USB/HID SECARA REAL-TIME (WebHID API)
+    async function initHardwareDetection() {
+      if ("hid" in navigator) {
+        // Cek apakah perangkat scanner sudah pernah diizinkan sebelumnya
+        const devices = await navigator.hid.getDevices();
+        if (devices.length > 0) {
+          setScannerStatus(true, "USB / Wireless Scanner Terhubung");
+        }
+
+        // Otomatis berubah HIJAU saat kabel/dongle scanner dicolokkan
+        navigator.hid.addEventListener("connect", () => {
+          setScannerStatus(true, "USB / Wireless Scanner Terhubung");
+        });
+
+        // Otomatis berubah MERAH seketika saat kabel/dongle scanner dicabut
+        navigator.hid.addEventListener("disconnect", () => {
+          setScannerStatus(false, "Scanner Terputus / Tidak Terhubung");
+        });
+      }
+    }
+
+    // Fungsi saat staf mengklik lencana status untuk mendaftarkan alat scanner (1x saja)
+    async function connectHardwareScanner() {
+      if ("hid" in navigator) {
+        try {
+          const devices = await navigator.hid.requestDevice({ filters: [] });
+          if (devices.length > 0) {
+            setScannerStatus(true, "USB / Wireless Scanner Terhubung");
+          }
+        } catch (err) {
+          console.log("Pemilihan perangkat dibatalkan.");
+        }
+      } else {
+        alert("Browser ini tidak mendukung deteksi kabel otomatis. Status akan otomatis menjadi hijau saat scanner melakukan pemindaian.");
+      }
+    }
+
+    window.addEventListener("load", initHardwareDetection);
+
+    // 2. AUTO-FOCUS & DETEKSI KECEPATAN INPUT MESIN QR BARCODE
     let scannerBuffer = "";
     let lastKeyTime = Date.now();
+    let rapidKeystrokeCount = 0;
 
     document.addEventListener("keydown", function(e) {
       const usbInput = document.getElementById("usb-input");
-      
+      const currentTime = Date.now();
+      const diff = currentTime - lastKeyTime;
+      lastKeyTime = currentTime;
+
+      // Deteksi ketikan super cepat khas mesin barcode (< 45ms antar huruf)
+      if (diff < 45 && e.key.length === 1) {
+        rapidKeystrokeCount++;
+        if (rapidKeystrokeCount >= 3 && !isScannerVerified) {
+          setScannerStatus(true, "USB / Wireless Scanner Terhubung");
+        }
+      } else if (diff > 80) {
+        rapidKeystrokeCount = 0;
+        scannerBuffer = "";
+      }
+
       // Jika kursor sudah berada di dalam kotak input, biarkan form bekerja normal
       if (document.activeElement === usbInput) return;
-
-      const currentTime = Date.now();
-      // Alat barcode scanner mengetik sangat cepat (< 50ms antar karakter)
-      if (currentTime - lastKeyTime > 80) {
-        scannerBuffer = ""; // Reset jika ketikan terlalu lambat (bukan dari mesin scanner)
-      }
-      lastKeyTime = currentTime;
 
       if (e.key === "Enter") {
         if (scannerBuffer.length >= 3) {
@@ -163,7 +230,7 @@
           btn.innerText = "Matikan Kamera";
           btn.classList.replace("bg-amber-500", "bg-red-500");
         } catch (err) {
-          alert("Kamera tidak ditemukan atau izin ditolak. Anda tetap dapat langsung menggunakan mesin QR Barcode USB/Bluetooth.");
+          alert("Kamera tidak ditemukan atau izin ditolak. Anda tetap dapat menggunakan mesin QR Barcode USB/Bluetooth.");
         }
       } else {
         await html5QrCode.stop();
