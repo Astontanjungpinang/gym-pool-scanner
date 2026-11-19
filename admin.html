@@ -9,44 +9,47 @@
   <!-- Library SheetJS untuk Export ke File Excel Asli (.xlsx) -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   
-  <!-- CSS KHUSUS MESIN THERMAL 58MM: QR KECIL (22x22MM) DI TENGAH & BAGIAN ATAS -->
+  <!-- CSS KHUSUS MESIN THERMAL 58MM: TEPAT 1 HALAMAN, PRESISI TENGAH & BAGIAN ATAS -->
   <style>
     @media print {
       @page {
-        size: 58mm auto;
-        margin: 0;
+        size: 58mm 32mm; /* Mengunci ukuran kertas menjadi 1 label pendek (mencegah 3 halaman berulang) */
+        margin: 0mm !important;
       }
       html, body {
-        width: 58mm;
+        width: 100% !important;
+        height: auto !important;
         margin: 0 !important;
         padding: 0 !important;
         background: #ffffff !important;
+        overflow: hidden !important;
       }
-      body * {
-        visibility: hidden;
+      /* Hilangkan total seluruh halaman dashboard dari layout cetak agar tidak memicu halaman 2 & 3 */
+      #login-screen,
+      #edit-modal,
+      #admin-content {
+        display: none !important;
       }
-      #thermal-print-area, #thermal-print-area * {
-        visibility: visible;
-      }
+      /* Tampilkan area cetak thermal dengan lebar 100% mengikuti lebar cetak efektif printer */
       #thermal-print-area {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 58mm;
         display: flex !important;
-        flex-direction: column;
-        align-items: center;      /* Posisi tepat di tengah secara horizontal */
-        justify-content: flex-start; /* Posisi rapat di bagian atas kertas */
-        background: #ffffff;
-        padding-top: 2mm;
-        padding-bottom: 2mm;
-        margin: 0;
+        width: 100% !important;
+        justify-content: center !important; /* Presisi tepat di tengah horizontal */
+        align-items: flex-start !important; /* Presisi rapat di bagian atas */
+        padding-top: 2mm !important;
+        margin: 0 auto !important;
+        background: #ffffff !important;
       }
-      #thermal-print-area img, #thermal-print-area canvas {
-        width: 22mm !important;   /* Ukuran QR lebih kecil dan proporsional untuk kartu */
+      /* Sembunyikan elemen canvas duplikat bawaan library qrcode.js */
+      #thermal-print-area canvas {
+        display: none !important;
+      }
+      /* Tampilkan hanya 1 gambar QR Code tunggal */
+      #thermal-print-area img {
+        display: block !important;
+        width: 22mm !important;
         height: 22mm !important;
-        margin: 0 auto;
-        display: block;
+        margin: 0 auto !important;
         image-rendering: -moz-crisp-edges;
         image-rendering: -webkit-crisp-edges;
         image-rendering: pixelated;
@@ -57,7 +60,7 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
 
-  <!-- AREA KHUSUS CETAK THERMAL -->
+  <!-- AREA KHUSUS CETAK THERMAL (Hanya aktif saat Print) -->
   <div id="thermal-print-area" class="hidden"></div>
 
   <!-- LAYAR KUNCI LOGIN -->
@@ -349,7 +352,7 @@
     const ADMIN_PASSWORD = "Cameo_2026";
 
     // 2. URL WEB APP APPS SCRIPT ANDA
-    const API_URL = "https://script.google.com/macros/s/AKfycbw-LxKZHkDY1R3NdQjTAV4JgkTSNFWWsm8aIllAAyIbtpjid9Cq3A0FPW1ySELHvz3lfw/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbzMvfyuoZphCCetthAEklpeObYQ8n2a5oOKFgZspPBjTLl_KPDbTisAKGQQblWOAQugcQ/exec";
     
     let allMembers = [];
     let filteredMembers = [];
@@ -571,15 +574,15 @@
 
       const worksheet = XLSX.utils.json_to_sheet(dataMemberExcel);
       worksheet["!cols"] = [
-        { wch: 5 },   // No
-        { wch: 18 },  // No. ID Kartu
-        { wch: 25 },  // Nama Member
-        { wch: 14 },  // Kategori
-        { wch: 18 },  // Paket Membership
-        { wch: 15 },  // Berlaku Dari
-        { wch: 22 },  // Sampai Dengan
-        { wch: 18 },  // Status
-        { wch: 22 }   // Token QR
+        { wch: 5 },
+        { wch: 18 },
+        { wch: 25 },
+        { wch: 14 },
+        { wch: 18 },
+        { wch: 15 },
+        { wch: 22 },
+        { wch: 18 },
+        { wch: 22 }
       ];
 
       const workbook = XLSX.utils.book_new();
@@ -790,7 +793,7 @@
       printThermalQR(qrToken);
     }
 
-    // CETAK GAMBAR QR CODE KECIL (22x22MM) DI TENGAH-ATAS KERTAS THERMAL 58MM
+    // CETAK 1 GAMBAR QR CODE TUNGGAL (22x22MM) DI TENGAH-ATAS KERTAS THERMAL 58MM
     function printThermalQR(qrToken) {
       const printArea = document.getElementById('thermal-print-area');
       printArea.innerHTML = "";
@@ -806,7 +809,7 @@
 
       setTimeout(() => {
         window.print();
-      }, 300);
+      }, 350);
     }
   </script>
 </body>
