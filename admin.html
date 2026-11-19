@@ -9,11 +9,18 @@
   <!-- Library SheetJS untuk Export ke File Excel Asli (.xlsx) -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   
-  <!-- CSS KHUSUS MESIN THERMAL: HANYA MENCETAK GAMBAR QR CODE RESOLUSI TINGGI -->
+  <!-- CSS KHUSUS MESIN THERMAL 58MM: QR KECIL (22x22MM) DI TENGAH & BAGIAN ATAS -->
   <style>
     @media print {
       @page {
+        size: 58mm auto;
         margin: 0;
+      }
+      html, body {
+        width: 58mm;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
       }
       body * {
         visibility: hidden;
@@ -23,17 +30,23 @@
       }
       #thermal-print-area {
         position: fixed;
-        inset: 0;
+        top: 0;
+        left: 0;
+        width: 58mm;
         display: flex !important;
-        align-items: center;
-        justify-content: center;
+        flex-direction: column;
+        align-items: center;      /* Posisi tepat di tengah secara horizontal */
+        justify-content: flex-start; /* Posisi rapat di bagian atas kertas */
         background: #ffffff;
-        padding: 3mm;
+        padding-top: 2mm;
+        padding-bottom: 2mm;
+        margin: 0;
       }
       #thermal-print-area img, #thermal-print-area canvas {
-        width: 32mm !important;
-        height: 32mm !important;
+        width: 22mm !important;   /* Ukuran QR lebih kecil dan proporsional untuk kartu */
+        height: 22mm !important;
         margin: 0 auto;
+        display: block;
         image-rendering: -moz-crisp-edges;
         image-rendering: -webkit-crisp-edges;
         image-rendering: pixelated;
@@ -160,7 +173,7 @@
 
       <!-- Bagian 1: Form Tambah Member & Auto-Print Thermal QR -->
       <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <h2 class="text-base font-bold text-slate-800 mb-4 border-b pb-2">1. Registrasi Kartu Fisik & Cetak Stiker QR Thermal</h2>
+        <h2 class="text-base font-bold text-slate-800 mb-4 border-b pb-2">1. Registrasi Kartu Fisik & Cetak Stiker QR Thermal (58mm)</h2>
         <form onsubmit="addMember(event)" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
           
           <div>
@@ -211,11 +224,22 @@
         </form>
       </section>
 
-      <!-- Bagian 2: Daftar Member & Cetak Stiker QR (DENGAN FILTER & TOMBOL EDIT/HAPUS) -->
+      <!-- Bagian 2: Daftar Member, Export Excel & Cetak Stiker QR -->
       <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4 border-b pb-3">
-          <h2 class="text-base font-bold text-slate-800">2. Daftar Member & Cetak Stiker QR</h2>
-          <button onclick="loadData()" class="text-xs bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg font-medium self-start sm:self-auto">↻ Refresh Data</button>
+          <div>
+            <h2 class="text-base font-bold text-slate-800">2. Daftar Member & Cetak Stiker QR</h2>
+            <p class="text-xs text-slate-500">Menampilkan <span id="member-count" class="font-bold text-slate-700">0</span> data member terdaftar</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="exportMembersExcel()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-semibold shadow-sm inline-flex items-center gap-1.5">
+              <span>📊</span>
+              <span>Unduh Data Member (.xlsx)</span>
+            </button>
+            <button onclick="loadData()" class="text-xs bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg font-medium">
+              ↻ Refresh Data
+            </button>
+          </div>
         </div>
 
         <!-- Baris Filter Pencarian Member -->
@@ -271,7 +295,7 @@
           </div>
           <button onclick="exportExcel()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-semibold shadow-sm inline-flex items-center gap-1.5 self-start sm:self-auto">
             <span>📊</span>
-            <span>Unduh Laporan Excel (.xlsx)</span>
+            <span>Unduh Laporan Log (.xlsx)</span>
           </button>
         </div>
 
@@ -325,9 +349,10 @@
     const ADMIN_PASSWORD = "Cameo_2026";
 
     // 2. URL WEB APP APPS SCRIPT ANDA
-    const API_URL = "https://script.google.com/macros/s/AKfycbwtKIwVsISV_QEifeOcVCoxCNsPCSxnVM23N-lahwdrZ4W0AKwKQP-OLvAEOsJynBpbkw/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbw-LxKZHkDY1R3NdQjTAV4JgkTSNFWWsm8aIllAAyIbtpjid9Cq3A0FPW1ySELHvz3lfw/exec";
     
     let allMembers = [];
+    let filteredMembers = [];
     let allLogs = [];
     let filteredLogs = [];
 
@@ -429,14 +454,14 @@
     }
 
     // ==========================================
-    // FILTER & RENDER DAFTAR MEMBER
+    // FILTER, RENDER & EXPORT EXCEL DAFTAR MEMBER
     // ==========================================
     function applyMemberFilter() {
       const keyword = document.getElementById("filter-member-id").value.trim().toLowerCase();
       const startFilter = document.getElementById("filter-member-start").value;
       const endFilter = document.getElementById("filter-member-end").value;
 
-      const result = allMembers.filter(m => {
+      filteredMembers = allMembers.filter(m => {
         const matchKeyword = !keyword || 
           String(m.id_kartu).toLowerCase().includes(keyword) || 
           String(m.nama).toLowerCase().includes(keyword);
@@ -448,7 +473,8 @@
         return matchKeyword && matchStart && matchEnd;
       });
 
-      renderMembers(result);
+      document.getElementById("member-count").innerText = filteredMembers.length;
+      renderMembers(filteredMembers);
     }
 
     function resetMemberFilter() {
@@ -482,7 +508,6 @@
           ? `<span class="px-2 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-700">Compliment</span>`
           : `<span class="px-2 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-700">Reguler</span>`;
 
-        // Amankan tanda petik tunggal pada nama agar tidak merusak onclick
         const safeNama = String(m.nama).replace(/'/g, "\\'");
 
         return `
@@ -501,13 +526,13 @@
                   ✏️ Edit
                 </button>
                 <button onclick="printThermalQR('${m.qr_token}')" 
-                  title="Cetak Stiker QR"
+                  title="Cetak Stiker QR Thermal 58mm"
                   class="text-xs bg-slate-800 hover:bg-slate-700 text-white px-2.5 py-1.5 rounded transition">
                   🖨️ QR
                 </button>
                 <button onclick="deleteMember('${m.id_kartu}', '${safeNama}')" 
                   title="Hapus Data (Jika Salah ID Kartu)"
-                  class="text-xs bg-rose-100 hover:bg-rose-200 text-rose-700 font-semibold px-2 py-1.5 rounded transition">
+                  class="text-xs bg-rose-100 hover:bg-rose-200 text-rose-700 font-semibold px-2.5 py-1.5 rounded transition">
                   🗑️
                 </button>
               </div>
@@ -517,8 +542,55 @@
       }).join('');
     }
 
+    // EXPORT DAFTAR MEMBER KE FILE EXCEL (.XLSX)
+    function exportMembersExcel() {
+      if (!filteredMembers.length) {
+        alert("Tidak ada data member untuk diunduh.");
+        return;
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+
+      const dataMemberExcel = filteredMembers.map((m, index) => {
+        let statusText = "AKTIF";
+        if (m.start_date && today < m.start_date) statusText = "BELUM AKTIF";
+        else if (m.expired_date < today) statusText = "EXPIRED";
+
+        return {
+          "No": index + 1,
+          "No. ID Kartu": m.id_kartu,
+          "Nama Member": m.nama,
+          "Kategori": m.kategori || "Reguler",
+          "Paket Membership": m.paket,
+          "Berlaku Dari": m.start_date || "-",
+          "Sampai Dengan (Expired)": m.expired_date,
+          "Status Keanggotaan": statusText,
+          "Token QR": m.qr_token
+        };
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(dataMemberExcel);
+      worksheet["!cols"] = [
+        { wch: 5 },   // No
+        { wch: 18 },  // No. ID Kartu
+        { wch: 25 },  // Nama Member
+        { wch: 14 },  // Kategori
+        { wch: 18 },  // Paket Membership
+        { wch: 15 },  // Berlaku Dari
+        { wch: 22 },  // Sampai Dengan
+        { wch: 18 },  // Status
+        { wch: 22 }   // Token QR
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Data Member Gym & Pool");
+
+      const tglUnduh = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `Data_Member_Gym_Pool_${tglUnduh}.xlsx`);
+    }
+
     // ==========================================
-    // FITUR EDIT & HAPUS DATA MEMBER (OPSI 2)
+    // FITUR EDIT & HAPUS DATA MEMBER
     // ==========================================
     function openEditModal(idKartu, nama, kategori, paket, startDate, expiredDate) {
       document.getElementById("edit-id-kartu").value = idKartu;
@@ -685,7 +757,7 @@
       XLSX.writeFile(workbook, `Laporan_Audit_Gym_${periodeLabel}.xlsx`);
     }
 
-    // SIMPAN MEMBER & LANGSUNG CETAK KE MESIN THERMAL
+    // SIMPAN MEMBER & LANGSUNG CETAK KE MESIN THERMAL 58MM
     async function addMember(e) {
       e.preventDefault();
       const btn = document.getElementById('btn-save');
@@ -718,15 +790,15 @@
       printThermalQR(qrToken);
     }
 
-    // CETAK GAMBAR QR CODE RESOLUSI TINGGI KE PRINTER THERMAL
+    // CETAK GAMBAR QR CODE KECIL (22x22MM) DI TENGAH-ATAS KERTAS THERMAL 58MM
     function printThermalQR(qrToken) {
       const printArea = document.getElementById('thermal-print-area');
       printArea.innerHTML = "";
       
       new QRCode(printArea, {
         text: qrToken,
-        width: 600,
-        height: 600,
+        width: 500,
+        height: 500,
         colorDark: "#000000",
         colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.M
